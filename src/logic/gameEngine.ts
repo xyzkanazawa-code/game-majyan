@@ -292,12 +292,16 @@ function checkOtherPlayerActions(state: GameState, discardPlayerIndex: number, d
       }
     }
 
-    // 2. ポン判定 (リーチ中は不可)
+    // 2. ポン・大明槓判定 (リーチ中は不可)
     const canPon: Tile[][] = [];
+    const canKan: Tile[][] = [];
     if (!p.isRiichi) {
       const matches = p.hand.filter((t) => isSameTile(t, discardTile));
       if (matches.length >= 2) {
         canPon.push([matches[0], matches[1]]);
+      }
+      if (matches.length === 3) {
+        canKan.push([matches[0], matches[1], matches[2]]);
       }
     }
 
@@ -325,12 +329,12 @@ function checkOtherPlayerActions(state: GameState, discardPlayerIndex: number, d
       if (t5 && t6) canChi.push([t5, t6]);
     }
 
-    if (canRon || canPon.length > 0 || canChi.length > 0) {
+    if (canRon || canPon.length > 0 || canChi.length > 0 || canKan.length > 0) {
       pending[idx] = {
         canRon,
         canPon,
         canChi,
-        canKan: [],
+        canKan,
         canRiichi: [],
         canTsumo: false,
       };
@@ -389,20 +393,44 @@ export function executeCall(
   type: 'chi' | 'pon' | 'kan',
   tiles: Tile[]
 ): GameState {
-  const discardTile = state.lastDiscardTile!;
-  const fromPlayer = state.lastDiscardPlayer!;
-
   const player = state.players[playerIndex];
-  // 手牌から使用した牌を除く
   const usedIds = new Set(tiles.map((t) => t.id));
-  const remainingHand = player.hand.filter((t) => !usedIds.has(t.id));
+  let remainingHand = player.hand.filter((t) => !usedIds.has(t.id));
+
+  // 暗槓（自分のツモ番で4枚カン）か、他家からの鳴きか判定
+  const isClosedKan = type === 'kan' && tiles.length === 4;
+  const discardTile = isClosedKan ? tiles[0] : state.lastDiscardTile!;
+  const fromPlayer = isClosedKan ? playerIndex : state.lastDiscardPlayer!;
 
   const newMeld: Meld = {
-    type: type === 'chi' ? 'chi' : type === 'pon' ? 'pon' : 'kan_open',
-    tiles: [...tiles, discardTile],
+    type:
+      type === 'chi'
+        ? 'chi'
+        : type === 'pon'
+        ? 'pon'
+        : isClosedKan
+        ? 'kan_closed'
+        : 'kan_open',
+    tiles: isClosedKan ? [...tiles] : [...tiles, discardTile],
     fromPlayerIndex: fromPlayer,
     calledTile: discardTile,
   };
+
+  let remainingWall = [...state.wall];
+  let drawnRinshan: Tile | undefined = undefined;
+  const newDoraIndicators = [...state.doraIndicators];
+
+  // カンの場合は嶺上牌を1枚補充し、新ドラを1枚めくる
+  if (type === 'kan' && remainingWall.length > 0) {
+    drawnRinshan = remainingWall[0];
+    remainingWall = remainingWall.slice(1);
+    remainingHand = [...remainingHand, drawnRinshan];
+
+    // 新ドラ追加 (最大5枚まで)
+    if (newDoraIndicators.length < 5 && state.deadWall.length > 2 + newDoraIndicators.length * 2) {
+      newDoraIndicators.push(state.deadWall[2 + newDoraIndicators.length * 2]);
+    }
+  }
 
   // 鳴きが入ると全プレイヤーの一発フラグが消滅
   const updatedPlayers = state.players.map((p, idx) => {
@@ -411,7 +439,7 @@ export function executeCall(
         ...p,
         hand: remainingHand,
         melds: [...p.melds, newMeld],
-        isMenzen: false,
+        isMenzen: isClosedKan ? p.isMenzen : false,
         isIppatsu: false,
       };
     } else {
@@ -422,14 +450,22 @@ export function executeCall(
     }
   });
 
-  return {
+  const nextState: GameState = {
     ...state,
+    wall: remainingWall,
+    doraIndicators: newDoraIndicators,
     players: updatedPlayers,
     currentTurn: playerIndex,
-    currentDrawnTile: undefined,
+    currentDrawnTile: drawnRinshan,
     phase: 'PLAYING',
     pendingActions: {},
   };
+
+  if (drawnRinshan) {
+    checkDrawActions(nextState, playerIndex, drawnRinshan);
+  }
+
+  return nextState;
 }
 
 /**

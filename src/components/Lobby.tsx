@@ -6,12 +6,16 @@ interface LobbyProps {
   onStartSolo: (playerName: string) => void;
   onCreateRoom: (playerName: string) => void;
   onJoinRoom: (playerName: string, roomId: string) => void;
+  isBeginnerMode: boolean;
+  onToggleBeginnerMode: () => void;
 }
 
 export const Lobby: React.FC<LobbyProps> = ({
   onStartSolo,
   onCreateRoom,
   onJoinRoom,
+  isBeginnerMode,
+  onToggleBeginnerMode,
 }) => {
   const [playerName, setPlayerName] = useState('マサ');
   const [roomIdInput, setRoomIdInput] = useState('');
@@ -41,7 +45,7 @@ export const Lobby: React.FC<LobbyProps> = ({
       {/* サウンド切り替え */}
       <button
         onClick={toggleSound}
-        className="absolute top-4 right-4 p-3 bg-white/10 hover:bg-white/20 rounded-full border border-white/20 transition-all text-gray-200"
+        className="absolute top-4 right-4 p-3 bg-white/10 hover:bg-white/20 rounded-full border border-white/20 transition-all text-gray-200 cursor-pointer"
         title={isMuted ? 'ミュート解除' : 'ミュート'}
       >
         {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5 text-emerald-400" />}
@@ -58,12 +62,12 @@ export const Lobby: React.FC<LobbyProps> = ({
         <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-200 to-emerald-400 tracking-wider mb-2">
           電脳 麻雀 卓
         </h1>
-        <p className="text-xs text-emerald-200/70 mb-6">
+        <p className="text-xs text-emerald-200/70 mb-5">
           東風戦アリアルール ＆ リアルタイム対戦・チャット
         </p>
 
         {/* プレイヤーネーム入力 */}
-        <div className="w-full mb-6 text-left">
+        <div className="w-full mb-4 text-left">
           <label className="block text-xs font-bold text-emerald-300 mb-1.5 ml-1">
             プレイヤー名
           </label>
@@ -77,12 +81,44 @@ export const Lobby: React.FC<LobbyProps> = ({
           />
         </div>
 
+        {/* 初心者サポートモード切替 */}
+        <div className="w-full mb-6">
+          <button
+            type="button"
+            onClick={onToggleBeginnerMode}
+            className={`w-full p-3 rounded-2xl border flex items-center justify-between transition-all cursor-pointer ${
+              isBeginnerMode
+                ? 'bg-emerald-950/90 border-emerald-400 shadow-lg ring-1 ring-emerald-400/40'
+                : 'bg-gray-900/60 border-gray-700 opacity-75 hover:opacity-100'
+            }`}
+          >
+            <div className="flex items-center gap-2.5 text-left">
+              <span className="text-xl">🔰</span>
+              <div>
+                <div className="text-xs font-black text-white flex items-center gap-1.5">
+                  <span>初心者サポートモード</span>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                      isBeginnerMode ? 'bg-yellow-400 text-black' : 'bg-gray-700 text-gray-300'
+                    }`}
+                  >
+                    {isBeginnerMode ? 'ON (推奨)' : 'OFF'}
+                  </span>
+                </div>
+                <div className="text-[11px] text-emerald-200/80 mt-0.5">
+                  おすすめの捨て牌や、ポン・チー・カンの判断を案内します
+                </div>
+              </div>
+            </div>
+          </button>
+        </div>
+
         {/* モード選択ボタン群 */}
         <div className="w-full flex flex-col gap-3">
           {/* 1人プレイ (CPU対戦) */}
           <button
             onClick={() => onStartSolo(playerName.trim() || 'マサ')}
-            className="w-full py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-base rounded-2xl shadow-xl flex items-center justify-center gap-2.5 transition-transform active:scale-95 border border-emerald-400/40 group"
+            className="w-full py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-base rounded-2xl shadow-xl flex items-center justify-center gap-2.5 transition-transform active:scale-95 border border-emerald-400/40 group cursor-pointer"
           >
             <Play className="w-5 h-5 fill-current transition-transform group-hover:scale-110" />
             <span>1人プレイ (CPU 3人と対戦)</span>
@@ -91,7 +127,7 @@ export const Lobby: React.FC<LobbyProps> = ({
           {/* ルーム作成 (ホスト) */}
           <button
             onClick={() => onCreateRoom(playerName.trim() || 'マサ')}
-            className="w-full py-3.5 bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-white font-bold text-sm rounded-2xl shadow-lg flex items-center justify-center gap-2 transition-transform active:scale-95 border border-amber-400/40"
+            className="w-full py-3.5 bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-white font-bold text-sm rounded-2xl shadow-lg flex items-center justify-center gap-2 transition-transform active:scale-95 border border-amber-400/40 cursor-pointer"
           >
             <Users className="w-4 h-4" />
             <span>部屋を作る (合言葉を発行)</span>
@@ -100,7 +136,7 @@ export const Lobby: React.FC<LobbyProps> = ({
           {/* ルーム参加 (ゲスト) */}
           <button
             onClick={() => setShowJoinModal(true)}
-            className="w-full py-3 bg-gray-800/80 hover:bg-gray-700/80 text-gray-200 font-semibold text-sm rounded-2xl border border-gray-600 flex items-center justify-center gap-2 transition-transform active:scale-95"
+            className="w-full py-3 bg-gray-800/80 hover:bg-gray-700/80 text-gray-200 font-semibold text-sm rounded-2xl border border-gray-600 flex items-center justify-center gap-2 transition-transform active:scale-95 cursor-pointer"
           >
             <LogIn className="w-4 h-4 text-emerald-400" />
             <span>部屋に入る (合言葉を入力)</span>
@@ -143,14 +179,14 @@ export const Lobby: React.FC<LobbyProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowJoinModal(false)}
-                  className="flex-1 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold rounded-xl text-xs"
+                  className="flex-1 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold rounded-xl text-xs cursor-pointer"
                 >
                   キャンセル
                 </button>
                 <button
                   type="submit"
                   disabled={!roomIdInput.trim()}
-                  className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-bold rounded-xl text-xs shadow"
+                  className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-bold rounded-xl text-xs shadow cursor-pointer"
                 >
                   入室する
                 </button>

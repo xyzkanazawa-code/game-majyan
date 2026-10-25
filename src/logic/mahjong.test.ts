@@ -3,6 +3,8 @@ import { createDeck, countDora, isSameTile } from './tiles';
 import { calculateShanten, isTenpai, getWaitingTiles } from './shanten';
 import { judgeYaku } from './yaku';
 import { calculateScore } from './score';
+import { getDiscardAdvice, getActionAdvice } from './advisor';
+import { createInitialGame, startRound } from './gameEngine';
 import { Tile } from '../types/mahjong';
 
 describe('麻雀牌ロジック (tiles)', () => {
@@ -174,5 +176,52 @@ describe('点数計算 (score)', () => {
     expect(score.score).toBe(12000);
     expect(score.scoreDelta[0]).toBe(12000);
     expect(score.scoreDelta[2]).toBe(-12000);
+  });
+});
+
+describe('初心者サポート・AIアドバイス (advisor)', () => {
+  it('自分のツモ番でおすすめ捨て牌と理由が算出されること', () => {
+    const game = startRound(
+      createInitialGame([
+        { id: '0', name: 'マサ', isAi: false },
+        { id: '1', name: 'CPU1', isAi: true },
+        { id: '2', name: 'CPU2', isAi: true },
+        { id: '3', name: 'CPU3', isAi: true },
+      ])
+    );
+
+    const advice = getDiscardAdvice(game, 0);
+    expect(advice).not.toBeNull();
+    expect(advice?.recommendedTile).toBeDefined();
+    expect(advice?.reason.length).toBeGreaterThan(0);
+  });
+
+  it('役牌（發）のポンチャンスではポンが推奨されること', () => {
+    const game = startRound(
+      createInitialGame([
+        { id: '0', name: 'マサ', isAi: false },
+        { id: '1', name: 'CPU1', isAi: true },
+        { id: '2', name: 'CPU2', isAi: true },
+        { id: '3', name: 'CPU3', isAi: true },
+      ])
+    );
+    const hatsu: Tile = { id: 99, suit: 'z', value: 6 };
+    game.lastDiscardTile = hatsu;
+
+    const actAdvice = getActionAdvice(
+      {
+        canRon: false,
+        canTsumo: false,
+        canRiichi: [],
+        canPon: [[{ id: 97, suit: 'z', value: 6 }, { id: 98, suit: 'z', value: 6 }]],
+        canChi: [],
+        canKan: [],
+      },
+      game,
+      0
+    );
+
+    expect(actAdvice?.recommendedAction).toBe('pon');
+    expect(actAdvice?.urgency).toBe('good');
   });
 });

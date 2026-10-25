@@ -26,6 +26,7 @@ export const App: React.FC = () => {
   const [roomId, setRoomId] = useState<string>('');
   const [isHost, setIsHost] = useState<boolean>(true);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [isBeginnerMode, setIsBeginnerMode] = useState<boolean>(true);
 
   const peerManagerRef = useRef<PeerRoomManager | null>(null);
   const isCpuThinkingRef = useRef<boolean>(false);
@@ -75,8 +76,7 @@ export const App: React.FC = () => {
       generatedRoomId,
       true,
       (msg: NetworkMessage) => handleNetworkMessage(msg),
-      (peerId: string) => {
-        // 新しいプレイヤーが入室した時の処理
+      () => {
         setChatMessages((prev) => [
           ...prev,
           {
@@ -107,12 +107,11 @@ export const App: React.FC = () => {
 
     await pm.init(joinRoomId, false, (msg: NetworkMessage) => handleNetworkMessage(msg));
 
-    setMyPlayerIndex(1); // ゲストは1番目の席
+    setMyPlayerIndex(1);
     setRoomId(joinRoomId);
     setIsHost(false);
     setView('game');
 
-    // ホストへ参加通知
     pm.sendToHost({
       type: 'PLAYER_JOINED',
       playerIndex: 1,
@@ -154,7 +153,6 @@ export const App: React.FC = () => {
 
     setChatMessages((prev) => [...prev, newChat]);
 
-    // ネットワーク送信
     if (peerManagerRef.current) {
       if (isHost) {
         peerManagerRef.current.broadcast({ type: 'CHAT_MESSAGE', chat: newChat });
@@ -169,7 +167,6 @@ export const App: React.FC = () => {
     if (!gameState) return;
 
     if (!isHost) {
-      // ゲストの場合はホストにリクエスト送信
       peerManagerRef.current?.sendToHost({
         type: 'DISCARD_REQUEST',
         playerIndex: pIndex,
@@ -182,7 +179,6 @@ export const App: React.FC = () => {
     const nextState = processDiscard(gameState, pIndex, tile, declareRiichi);
     setGameState(nextState);
 
-    // マルチプレイヤーへのステート同期
     if (peerManagerRef.current) {
       peerManagerRef.current.broadcast({ type: 'STATE_SYNC', state: nextState });
     }
@@ -203,7 +199,20 @@ export const App: React.FC = () => {
     }
 
     if (action === 'pass') {
-      // パス時は次の手番へ進める
+      // 自分のツモ番でリーチや暗槓をパスした場合は、アクションボタンを消して自分の打牌を継続
+      if (gameState.phase === 'PLAYING' && gameState.currentTurn === pIndex) {
+        const nextState: GameState = {
+          ...gameState,
+          pendingActions: {},
+        };
+        setGameState(nextState);
+        if (peerManagerRef.current) {
+          peerManagerRef.current.broadcast({ type: 'STATE_SYNC', state: nextState });
+        }
+        return;
+      }
+
+      // 他家の打牌への鳴きをパスした場合は次の手番へ進める
       const nextState = advanceToNextTurn(gameState);
       setGameState(nextState);
       if (peerManagerRef.current) {
@@ -260,7 +269,6 @@ export const App: React.FC = () => {
       if (currentPlayer.isAi && !isCpuThinkingRef.current) {
         isCpuThinkingRef.current = true;
 
-        // ツモ和了できるかチェック
         const actions = gameState.pendingActions[gameState.currentTurn];
         if (actions?.canTsumo) {
           setTimeout(() => {
@@ -270,7 +278,6 @@ export const App: React.FC = () => {
           return;
         }
 
-        // 打牌選定
         setTimeout(() => {
           if (!gameState) {
             isCpuThinkingRef.current = false;
@@ -293,15 +300,14 @@ export const App: React.FC = () => {
 
     // 2. 他家打牌に対するCPUの鳴き・ロン判断
     if (gameState.phase === 'WAITING_DISCARD_ACTION') {
-      // 人間プレイヤーにアクション権利があるか
       const humanActions = gameState.pendingActions[myPlayerIndex];
       const humanHasAction =
         humanActions &&
         (humanActions.canRon ||
           humanActions.canPon.length > 0 ||
-          humanActions.canChi.length > 0);
+          humanActions.canChi.length > 0 ||
+          humanActions.canKan.length > 0);
 
-      // 人間にアクション権利がない場合は、CPUたちのアクションを即時解決
       if (!humanHasAction && !isCpuThinkingRef.current) {
         isCpuThinkingRef.current = true;
         setTimeout(() => {
@@ -318,7 +324,7 @@ export const App: React.FC = () => {
                 handleAction('ron', undefined, idx);
                 resolved = true;
                 break;
-              } else if (choice.type === 'pon' || choice.type === 'chi') {
+              } else if (choice.type === 'pon' || choice.type === 'chi' || choice.type === 'kan') {
                 sounds.playCall();
                 handleAction(choice.type, choice.tiles, idx);
                 resolved = true;
@@ -328,7 +334,6 @@ export const App: React.FC = () => {
           }
 
           if (!resolved) {
-            // 全員パスなら次のツモ番へ
             const nextState = advanceToNextTurn(gameState);
             setGameState(nextState);
             if (peerManagerRef.current) {
@@ -347,6 +352,8 @@ export const App: React.FC = () => {
         onStartSolo={handleStartSolo}
         onCreateRoom={handleCreateRoom}
         onJoinRoom={handleJoinRoom}
+        isBeginnerMode={isBeginnerMode}
+        onToggleBeginnerMode={() => setIsBeginnerMode((prev) => !prev)}
       />
     );
   }
@@ -362,6 +369,8 @@ export const App: React.FC = () => {
       chatMessages={chatMessages}
       onSendChatMessage={handleSendChatMessage}
       roomId={roomId}
+      isBeginnerMode={isBeginnerMode}
+      onToggleBeginnerMode={() => setIsBeginnerMode((prev) => !prev)}
     />
   );
 };

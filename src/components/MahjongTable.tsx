@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   ActionType,
   ChatMessage,
@@ -14,6 +14,9 @@ import { ActionControls } from './ActionControls';
 import { ScoreModal } from './ScoreModal';
 import { GameOverModal } from './GameOverModal';
 import { ChatOverlay, SpeechBubble } from './ChatOverlay';
+import { BeginnerGuidePanel } from './BeginnerGuidePanel';
+import { getActionAdvice, getDiscardAdvice } from '../logic/advisor';
+import { getWaitingTiles } from '../logic/shanten';
 import { sounds } from '../utils/audio';
 
 interface MahjongTableProps {
@@ -26,6 +29,8 @@ interface MahjongTableProps {
   chatMessages: ChatMessage[];
   onSendChatMessage: (text: string, isQuick?: boolean) => void;
   roomId?: string;
+  isBeginnerMode: boolean;
+  onToggleBeginnerMode: () => void;
 }
 
 export const MahjongTable: React.FC<MahjongTableProps> = ({
@@ -38,6 +43,8 @@ export const MahjongTable: React.FC<MahjongTableProps> = ({
   chatMessages,
   onSendChatMessage,
   roomId,
+  isBeginnerMode,
+  onToggleBeginnerMode,
 }) => {
   const [selectedTileId, setSelectedTileId] = useState<number | null>(null);
   const [isRiichiDeclaring, setIsRiichiDeclaring] = useState(false);
@@ -53,6 +60,31 @@ export const MahjongTable: React.FC<MahjongTableProps> = ({
     canRon: false,
   };
 
+  // 初心者モード用のアドバイス計算
+  const discardAdvice = useMemo(() => {
+    if (!isBeginnerMode || !isMyTurn) return null;
+    return getDiscardAdvice(gameState, myPlayerIndex);
+  }, [isBeginnerMode, isMyTurn, gameState, myPlayerIndex]);
+
+  const actionAdvice = useMemo(() => {
+    if (!isBeginnerMode) return null;
+    const hasAnyAction =
+      myActions.canRon ||
+      myActions.canTsumo ||
+      myActions.canRiichi.length > 0 ||
+      myActions.canPon.length > 0 ||
+      myActions.canChi.length > 0 ||
+      myActions.canKan.length > 0;
+    if (!hasAnyAction) return null;
+    return getActionAdvice(myActions, gameState, myPlayerIndex);
+  }, [isBeginnerMode, myActions, gameState, myPlayerIndex]);
+
+  const waitingTilesWhenNotTurn = useMemo(() => {
+    if (!isBeginnerMode || isMyTurn) return [];
+    if (me.hand.length % 3 !== 1) return [];
+    return getWaitingTiles(me.hand, me.melds);
+  }, [isBeginnerMode, isMyTurn, me.hand, me.melds]);
+
   // プレイヤーの相対位置計算 (0:自分, 1:下家(右), 2:対面(上), 3:上家(左))
   const getPlayerByRelativePos = (offset: number): Player => {
     const idx = (myPlayerIndex + offset) % 4;
@@ -67,7 +99,7 @@ export const MahjongTable: React.FC<MahjongTableProps> = ({
   const topPlayer = getPlayerByRelativePos(2);
   const leftPlayer = getPlayerByRelativePos(3);
 
-  // 最新チャットの吹き出し表示用 (直近3秒以内のメッセージ)
+  // 最新チャットの吹き出し表示用
   const getLatestPlayerChat = (pIndex: number): ChatMessage | undefined => {
     const now = Date.now();
     return chatMessages
@@ -81,7 +113,6 @@ export const MahjongTable: React.FC<MahjongTableProps> = ({
     if (!isMyTurn) return;
 
     if (isRiichiDeclaring) {
-      // リーチ宣言可能な牌かチェック
       const isCandidate = myActions.canRiichi.some((t) => t.id === tile.id);
       if (isCandidate) {
         sounds.playRiichi();
@@ -93,17 +124,15 @@ export const MahjongTable: React.FC<MahjongTableProps> = ({
     }
 
     if (selectedTileId === tile.id) {
-      // ダブルクリックまたは選択状態からの再タップで打牌
       sounds.playDiscard();
       onDiscard(tile, false);
       setSelectedTileId(null);
     } else {
-      // 1回目のタップで選択（持ち上げ）
       setSelectedTileId(tile.id);
     }
   };
 
-  // リーチ宣言モードの開始
+  // アクションボタン処理
   const handleActionClick = (type: ActionType, tiles?: Tile[]) => {
     if (type === 'riichi') {
       setIsRiichiDeclaring(true);
@@ -117,6 +146,8 @@ export const MahjongTable: React.FC<MahjongTableProps> = ({
     }
   };
 
+  const recommendedTileId = discardAdvice?.recommendedTile.id;
+
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-gradient-to-br from-[#0c2417] via-[#091d12] to-[#040e08] flex items-center justify-center p-2 select-none">
       {/* 卓の木枠とマット */}
@@ -129,6 +160,23 @@ export const MahjongTable: React.FC<MahjongTableProps> = ({
             合言葉: <span className="text-yellow-200 tracking-wider font-mono">{roomId}</span>
           </div>
         )}
+
+        {/* 🔰 初心者ガイドパネル & ON/OFFスイッチ */}
+        <BeginnerGuidePanel
+          isBeginnerMode={isBeginnerMode}
+          onToggleBeginnerMode={onToggleBeginnerMode}
+          discardAdvice={discardAdvice}
+          actionAdvice={actionAdvice}
+          isMyTurn={isMyTurn}
+          waitingTilesWhenNotTurn={waitingTilesWhenNotTurn}
+          onQuickDiscard={(tile) => {
+            if (isMyTurn) {
+              sounds.playDiscard();
+              onDiscard(tile, false);
+              setSelectedTileId(null);
+            }
+          }}
+        />
 
         {/* ─── 対面 (上) ─── */}
         <div className="w-full flex flex-col items-center relative">
@@ -250,6 +298,7 @@ export const MahjongTable: React.FC<MahjongTableProps> = ({
             onAction={handleActionClick}
             isRiichiDeclaring={isRiichiDeclaring}
             onCancelRiichi={() => setIsRiichiDeclaring(false)}
+            actionAdvice={actionAdvice}
           />
 
           <div className="w-full flex items-end justify-between px-6">
@@ -279,28 +328,62 @@ export const MahjongTable: React.FC<MahjongTableProps> = ({
               {me.hand
                 .filter((t) => t.id !== gameState.currentDrawnTile?.id)
                 .map((tile) => {
-                  const isSelectableRiichi = isRiichiDeclaring && myActions.canRiichi.some((t) => t.id === tile.id);
+                  const isSelectableRiichi =
+                    isRiichiDeclaring && myActions.canRiichi.some((t) => t.id === tile.id);
+                  const isRecommended =
+                    isBeginnerMode && isMyTurn && !isRiichiDeclaring && tile.id === recommendedTileId;
 
                   return (
-                    <TileView
-                      key={tile.id}
-                      tile={tile}
-                      size="lg"
-                      isSelected={selectedTileId === tile.id}
-                      onClick={() => handleTileClick(tile)}
-                      className={isSelectableRiichi ? 'ring-2 ring-red-500 animate-pulse' : ''}
-                    />
+                    <div key={tile.id} className="relative flex flex-col items-center">
+                      {isRecommended && (
+                        <span className="absolute -top-6 z-20 whitespace-nowrap bg-gradient-to-r from-yellow-400 to-amber-500 text-black text-[10px] font-black px-1.5 py-0.5 rounded-full shadow-lg border border-white animate-bounce pointer-events-none">
+                          🌟おすすめ
+                        </span>
+                      )}
+                      <TileView
+                        tile={tile}
+                        size="lg"
+                        isSelected={selectedTileId === tile.id}
+                        onClick={() => handleTileClick(tile)}
+                        className={
+                          isSelectableRiichi
+                            ? 'ring-2 ring-red-500 animate-pulse'
+                            : isRecommended
+                            ? 'ring-2 ring-yellow-400'
+                            : ''
+                        }
+                      />
+                    </div>
                   );
                 })}
 
               {/* ツモ牌 (少し間を空けて右に表示) */}
               {gameState.currentDrawnTile && gameState.currentTurn === myPlayerIndex && (
-                <div className="ml-3 pl-2 border-l border-white/20">
+                <div className="ml-3 pl-2 border-l border-white/20 relative flex flex-col items-center">
+                  {isBeginnerMode &&
+                    isMyTurn &&
+                    !isRiichiDeclaring &&
+                    gameState.currentDrawnTile.id === recommendedTileId && (
+                      <span className="absolute -top-6 z-20 whitespace-nowrap bg-gradient-to-r from-yellow-400 to-amber-500 text-black text-[10px] font-black px-1.5 py-0.5 rounded-full shadow-lg border border-white animate-bounce pointer-events-none">
+                        🌟おすすめ
+                      </span>
+                    )}
                   <TileView
                     tile={gameState.currentDrawnTile}
                     size="lg"
                     isSelected={selectedTileId === gameState.currentDrawnTile.id}
                     onClick={() => handleTileClick(gameState.currentDrawnTile!)}
+                    className={
+                      isRiichiDeclaring &&
+                      myActions.canRiichi.some((t) => t.id === gameState.currentDrawnTile?.id)
+                        ? 'ring-2 ring-red-500 animate-pulse'
+                        : isBeginnerMode &&
+                          isMyTurn &&
+                          !isRiichiDeclaring &&
+                          gameState.currentDrawnTile.id === recommendedTileId
+                        ? 'ring-2 ring-yellow-400'
+                        : ''
+                    }
                   />
                 </div>
               )}
