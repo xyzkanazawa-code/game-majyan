@@ -7,6 +7,8 @@ interface ChatOverlayProps {
   messages: ChatMessage[];
   onSendMessage: (text: string, isQuick?: boolean) => void;
   myPlayerName: string;
+  isOpen?: boolean;
+  onToggle?: () => void;
 }
 
 const QUICK_MESSAGES = [
@@ -24,8 +26,16 @@ export const ChatOverlay: React.FC<ChatOverlayProps> = ({
   messages,
   onSendMessage,
   myPlayerName,
+  isOpen: controlledOpen,
+  onToggle,
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isOpen = controlledOpen !== undefined ? controlledOpen : internalOpen;
+  const toggleChat = () => {
+    if (onToggle) onToggle();
+    else setInternalOpen(!internalOpen);
+  };
+
   const [inputText, setInputText] = useState('');
   const [showQuick, setShowQuick] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -53,30 +63,37 @@ export const ChatOverlay: React.FC<ChatOverlayProps> = ({
 
   return (
     <>
-      {/* チャット開閉フローティングボタン */}
-      <div className="fixed bottom-4 right-4 z-40 flex items-center gap-2">
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className="relative p-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-full shadow-2xl transition-transform active:scale-90 flex items-center justify-center border border-emerald-400/50"
-          title="チャットを開く"
-        >
-          {isOpen ? <X className="w-5 h-5" /> : <MessageSquare className="w-5 h-5" />}
-          {messages.length > 0 && !isOpen && (
-            <span className="absolute -top-1 -right-1 w-3 h-3 bg-amber-400 rounded-full animate-ping"></span>
-          )}
-        </button>
-      </div>
+      {/* 外部制御でない場合のみフローティングボタンを表示 */}
+      {controlledOpen === undefined && (
+        <div className="absolute top-3 right-3 z-40 flex items-center gap-2">
+          <button
+            onClick={toggleChat}
+            className="relative p-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-full shadow-2xl transition-transform active:scale-90 flex items-center justify-center border border-emerald-400/50 cursor-pointer"
+            title="チャットを開く"
+          >
+            {isOpen ? <X className="w-4 h-4" /> : <MessageSquare className="w-4 h-4" />}
+          </button>
+        </div>
+      )}
 
       {/* チャットウィンドウ */}
       {isOpen && (
-        <div className="fixed bottom-18 right-4 z-40 w-80 max-w-[calc(100vw-2rem)] h-96 bg-gray-900/95 backdrop-blur-md border border-emerald-500/40 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-white animate-fade-in">
+        <div className="absolute top-12 right-2 z-50 w-76 max-w-[92%] h-80 max-h-[80%] bg-gray-900/95 backdrop-blur-md border border-emerald-500/40 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-white">
           {/* ヘッダー */}
-          <div className="px-4 py-3 bg-gradient-to-r from-[#173325] to-[#0f2319] border-b border-emerald-700/50 flex items-center justify-between">
+          <div className="px-3.5 py-2.5 bg-gradient-to-r from-[#173325] to-[#0f2319] border-b border-emerald-700/50 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <MessageSquare className="w-4 h-4 text-emerald-400" />
-              <span className="font-bold text-sm">対戦チャット</span>
+              <span className="font-bold text-xs">対戦チャット</span>
             </div>
-            <span className="text-[11px] text-gray-400">{myPlayerName}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-gray-400">{myPlayerName}</span>
+              <button
+                onClick={toggleChat}
+                className="p-1 text-gray-400 hover:text-white rounded-lg cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           {/* メッセージ一覧 */}

@@ -30,8 +30,8 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({ players, onRestart
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md animate-fade-in p-4">
-      <div className="w-[500px] max-w-[95vw] bg-gradient-to-b from-[#13241b] to-[#0a140f] border-2 border-yellow-500/80 rounded-2xl p-6 text-white shadow-2xl text-center">
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-3">
+      <div className="w-[500px] max-w-[94%] max-h-[94%] overflow-y-auto bg-gradient-to-b from-[#13241b] to-[#0a140f] border-2 border-yellow-500/80 rounded-2xl p-5 text-white shadow-2xl text-center">
         <h2 className="text-3xl font-black text-amber-400 tracking-wider mb-1">
           対 局 終 了
         </h2>

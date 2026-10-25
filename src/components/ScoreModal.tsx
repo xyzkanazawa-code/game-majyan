@@ -28,8 +28,8 @@ export const ScoreModal: React.FC<ScoreModalProps> = ({
 
   if (roundResult.type === 'exhaustive_draw') {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm animate-fade-in">
-        <div className="w-[450px] max-w-[90vw] bg-gradient-to-b from-gray-900 to-gray-950 border border-gray-700 rounded-2xl p-6 text-white shadow-2xl text-center">
+      <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-3">
+        <div className="w-[450px] max-w-[92%] max-h-[94%] overflow-y-auto bg-gradient-to-b from-gray-900 to-gray-950 border border-gray-700 rounded-2xl p-5 text-white shadow-2xl text-center">
           <h2 className="text-2xl font-black text-amber-400 mb-2 tracking-wide">
             荒 牌 流 局
           </h2>
@@ -85,8 +85,8 @@ export const ScoreModal: React.FC<ScoreModalProps> = ({
   const fromPlayer = win.fromPlayerIndex !== undefined ? players[win.fromPlayerIndex] : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md animate-fade-in p-4">
-      <div className="w-[520px] max-w-[95vw] bg-gradient-to-b from-[#192b21] to-[#0e1a14] border-2 border-amber-500/80 rounded-2xl p-6 text-white shadow-2xl">
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-3">
+      <div className="w-[520px] max-w-[95%] max-h-[94%] overflow-y-auto bg-gradient-to-b from-[#192b21] to-[#0e1a14] border-2 border-amber-500/80 rounded-2xl p-4 sm:p-6 text-white shadow-2xl">
         {/* 和了ヘッダー */}
         <div className="text-center pb-4 border-b border-amber-500/30">
           <div className="inline-block bg-amber-500 text-black px-4 py-1 rounded-full text-xs font-black tracking-widest mb-2 shadow">

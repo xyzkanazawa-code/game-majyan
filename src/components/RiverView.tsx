@@ -28,15 +28,19 @@ export const RiverView: React.FC<RiverViewProps> = ({
     270: '-rotate-90',
   }[rotation];
 
-  return (
-    <div className={`flex flex-col gap-1 p-1 bg-black/15 rounded-md backdrop-blur-xs ${rotationClass}`}>
+  const isSideways = rotation === 90 || rotation === 270;
+
+  const riverContent = (
+    <div
+      className={`w-[206px] min-h-[86px] flex flex-col gap-0.5 p-1 bg-black/20 rounded-md border border-white/5 shrink-0 ${rotationClass}`}
+    >
       {rows.length === 0 ? (
-        <div className="w-48 h-20 flex items-center justify-center text-xs text-white/30 italic">
+        <div className="w-full h-[76px] flex items-center justify-center text-xs text-white/30 italic">
           捨て牌なし
         </div>
       ) : (
         rows.map((row, rIdx) => (
-          <div key={rIdx} className="flex gap-1 items-center">
+          <div key={rIdx} className="flex gap-0.5 items-center">
             {row.map((tile, cIdx) => {
               const tileGlobalIndex = rIdx * 6 + cIdx;
               const isRiichiTile = riichiTurn !== undefined && tileGlobalIndex === riichiTurn;
@@ -48,10 +52,10 @@ export const RiverView: React.FC<RiverViewProps> = ({
                     tile={tile}
                     size="sm"
                     isRotated={isRiichiTile}
-                    className={isLatest ? 'ring-2 ring-yellow-400' : ''}
+                    className={isLatest ? 'ring-2 ring-yellow-400 rounded-[3px]' : ''}
                   />
                   {isLatest && (
-                    <span className="absolute -top-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-yellow-400 animate-ping"></span>
+                    <span className="absolute -top-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-yellow-400 animate-ping z-10"></span>
                   )}
                 </div>
               );
@@ -61,4 +65,14 @@ export const RiverView: React.FC<RiverViewProps> = ({
       )}
     </div>
   );
+
+  if (isSideways) {
+    return (
+      <div className="w-[86px] h-[206px] flex items-center justify-center shrink-0">
+        {riverContent}
+      </div>
+    );
+  }
+
+  return riverContent;
 };

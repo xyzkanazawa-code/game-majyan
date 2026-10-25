@@ -4,7 +4,7 @@ import { TileView } from './TileView';
 
 interface MeldViewProps {
   melds: Meld[];
-  size?: 'sm' | 'md';
+  size?: 'xs' | 'sm' | 'md';
 }
 
 export const MeldView: React.FC<MeldViewProps> = ({ melds, size = 'sm' }) => {
